@@ -2,99 +2,55 @@
 
 # Include HTML/CSS
 
-from dash import dash, dcc, html, Input, Output
-from flask import Flask
+import dash
+from dash import html, dcc
 import requests
-import plotly.express as px
-from dash.dependencies import Input, Output
-
-
-app = Flask(__name__)
-
-API_KEY = "5c60f307f08a9fe0acd901195430ee0f"
-
-# BASE_URL = f"http://api.openweathermap.org/data/2.5/air_pollution/history?lat={lat}&lon={lon}&start={start}&end={end}&appid={API_KEY}"
-
-#county_name = 'Los Angeles'
-# def get_pollution_data(county):
-   # url = BASE_URL + "appid=" + API_KEY + "&q=" + county + "&units=metric"
-    # response = requests.get(url)
-   # return response.json()
-
-def get_air_pollution(lat, lon):
-    pollution_url = f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid={API_KEY}"
-    response = requests.get(pollution_url)
-
-    if response.status_code == 200:
-        return response.json()['list'][0]
-    else:
-        messagebox.showerror("Error", f"Air Pollution API error: {response.status_code}")
-        return None
-    
-def show_air_pollution():
-    county = county_entry.get()
-    if county:
-        coordinates = get_county_coordinates(county)
-        if coordinates:
-            lat, lon = coordinates
-
-            pollution_data = get_air_pollution(lat, lon)
-            if pollution_data:
-                update_air_pollution_display(pollution_data)
-        else:
-            messagebox.showerror("")
-    else:
-        messagebox.showerror("")
-
-
-# data = get_pollution_data("Los Angeles")
+import plotly.graph_objs as go
+from datetime import datetime
 
 app = dash.Dash(__name__)
+server = app.server 
+API_KEY = '5c60f307f08a9fe0acd901195430ee0f'
+LAT, LON = 34.05, -118.24 
+START = 1743500000
+END = 1752171644
 
+def get_air_pollution_data():
+    url = f'http://api.openweathermap.org/data/2.5/air_pollution/history?lat={LAT}&lon={LON}&start={START}&end={END}&appid={API_KEY}'
+    response = requests.get(url)
+    data = response.json()
+    timestamps, pm25, co, o3 = [], [], [], []
 
-app.layout = html.Div(
-    children=[
-         html.H1 ('Air Pollution over the past 6 months hours in Los Angeles County, CA'),
-         
-    dcc.Input(id='county-input', value='Los Angeles County, CA', type='text'),
-    html.Select('Retrieve Air Pollution Data', id='submit-button', n_clicks=0),
-    html.Div(id='pollution-output'),
-    dcc.Graph(id="line-charts-x-graph"),
-    dcc.Checklist(
-        id="line-charts-x-checklist",
-        options=["Carbon Monoxide", "PM 2.5", "Ground Level Ozone",],
-        value=["Los Angeles"],
-        inline=True
-    ),
+    for item in data['list']:
+        dt = datetime.utcfromtimestamp(item['dt'])
+        timestamps.append(dt)
+        pm25.append(item['components']['pm2_5'])
+        co.append(item['components']['co'])
+        o3.append(item['components']['o3'])
+
+    return timestamps, pm25, co, o3
+
+timestamps, pm25, co, o3 = get_air_pollution_data()
+
+app.layout = html.Div(style={'backgroundColor': '#d5aa33', 'color': '#fff', 'padding': '2rem'}, children=[
+    html.H1('Air Pollution History for the past 3 months in Los Angeles County', style={'textAlign': 'center'}),
+    dcc.Graph(
+        id='pollution-line-chart',
+        figure={
+            'data': [
+                go.Scatter(x=timestamps, y=pm25, mode='lines+markers', name='PM2.5'),
+                go.Scatter(x=timestamps, y=co, mode='lines+markers', name='CO'),
+                go.Scatter(x=timestamps, y=o3,  mode='lines+markers', name='O3'),
+            ],
+            'layout': go.Layout(
+                title='Air Pollutants', 
+                xaxis={'title': 'Date'},
+                yaxis={'title': 'Pollution Amount'},
+                template='plotly_dark'
+            )
+        }
+    )
 ])
-
-
-
-
-
-@app.callback(
-    Output('pollution-output', 'children'),
-    Input('submit-button', 'n_clicks'),
-    Input('county-input', 'value')
-)
-
-@app.callback(
-    Output("line-charts-x-graph", "figure"),
-    Input("line-charts-x-checklist", "value"))
-def update_line_chart(country):
-    df = px.data.gapminder() 
-    mask = df.country.isin(country)
-    fig = px.line(df[mask],
-        x="date", y="pollutant", color='country')
-    return fig
-
-# return html.Div([
-           # html.P(f"Carbon Monoxide: {county}"),
-           # html.P(f"Ground Level Ozone: {county}"),
-          #  html.P(f"PM2.5: {county}"),
-  #      ])
-
 
 if __name__ == '__main__':
     app.run(debug=True)
-
