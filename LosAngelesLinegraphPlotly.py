@@ -1,4 +1,4 @@
-# Past 6 Month Monitored Air Pollution Data (Line Chart) dashboard for Los Angeles County, CA
+# Past 3 Month Monitored Air Pollution Data (Line Chart) dashboard for Los Angeles County, CA
 
 # Include HTML/CSS
 
